@@ -34,7 +34,17 @@ public class GreetingController {
         conf.setProperty("storage.backend","cassandra");
         conf.setProperty("storage.hostname","127.0.0.1");
         
+        conf.setProperty("storage.index.search.backend", "elasticsearch");
+        conf.setProperty("storage.index.search.hostname", "127.0.0.1");
+        conf.setProperty("storage.index.search.client-only", "true");
+        
         TitanGraph g = TitanFactory.open(conf);
+        g.makeKey("name").dataType(String.class).indexed(Vertex.class).make();
+        g.makeLabel("place").make();
+        g.makeLabel("married").make();
+        
+        g.makeKey("city").dataType(String.class).indexed(Vertex.class).indexed(Edge.class).indexed("search",Vertex.class).indexed("search",Edge.class).make();
+                
         //Graph graph = new TitanFactory()
       
         
