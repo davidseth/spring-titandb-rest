@@ -15,14 +15,17 @@ public interface Person extends VertexFrame {
     
     public long getId();
     
-
     @Property("content")
     public String getContent();
     
     @Property("content")
-    public String setContent(String content);   
+    public String setContent(String content);
     
-    @Adjacency(label = "pet") Iterable<? extends Animal> getPets();
+    @Adjacency(label = "family") Iterable<? extends Person> getFamily();
     
-    @Adjacency(label = "pet") void addPet(Animal animal);    
+    @Adjacency(label = "family") void addFamily(Person person);
+    
+    @Adjacency(label = "friends") Iterable<? extends Person> getFriends();
+    
+    @Adjacency(label = "friends") void addPet(Person person);
 }
