@@ -11,8 +11,16 @@ import com.thinkaurelius.titan.core.TitanFactory;
 import com.thinkaurelius.titan.core.TitanGraph;
 import com.tinkerpop.blueprints.Edge;
 import com.tinkerpop.blueprints.Vertex;
+import com.tinkerpop.blueprints.impls.tg.TinkerGraph;
+import com.tinkerpop.blueprints.impls.tg.TinkerGraphFactory;
+import com.tinkerpop.frames.FramedGraph;
+import com.tinkerpop.frames.FramedGraphFactory;
+import com.tinkerpop.frames.modules.gremlingroovy.GremlinGroovyModule;
+
 import org.apache.commons.configuration.BaseConfiguration;
 import org.apache.commons.configuration.Configuration;
+
+import iceberg.model.Person;
 
 @Controller
 public class GreetingController {
@@ -34,28 +42,79 @@ public class GreetingController {
         conf.setProperty("storage.backend","cassandra");
         conf.setProperty("storage.hostname","127.0.0.1");
         
-        conf.setProperty("storage.index.search.backend", "elasticsearch");
-        conf.setProperty("storage.index.search.hostname", "127.0.0.1");
-        conf.setProperty("storage.index.search.client-only", "true");
+//        conf.setProperty("storage.index.search.backend", "elasticsearch");
+//        conf.setProperty("storage.index.search.hostname", "127.0.0.1");
+//        conf.setProperty("storage.index.search.client-only", "true");
         
+        
+     
         TitanGraph g = TitanFactory.open(conf);
         g.makeKey("name").dataType(String.class).indexed(Vertex.class).make();
         g.makeLabel("place").make();
         g.makeLabel("married").make();
         
-        g.makeKey("city").dataType(String.class).indexed(Vertex.class).indexed(Edge.class).indexed("search",Vertex.class).indexed("search",Edge.class).make();
+        //g.makeKey("city").dataType(String.class).indexed(Vertex.class).indexed(Edge.class).indexed("search",Vertex.class).indexed("search",Edge.class).make();
                 
         //Graph graph = new TitanFactory()
       
+        //TinkerGraph graph = TinkerGraphFactory.createTinkerGraph();
+        FramedGraphFactory factory = new FramedGraphFactory();
+        FramedGraph<TitanGraph> framedGraph = factory.create(g);
+
+        Person nicola = framedGraph.addVertex(null, Person.class);
+        nicola.setName("Nicola Peterson");        
+       
+        Person david = framedGraph.addVertex(null, Person.class);
+        david.setName("David Peterson");
+        david.addFamily(nicola);
+        
         
         Vertex juno = g.addVertex(null);
         juno.setProperty("name", "juno");
         juno.setProperty("city", "bismarck");
         Vertex jupiter = g.addVertex(null);
         jupiter.setProperty("name", "jupiter");
-        Edge married = g.addEdge(null, juno, jupiter, "married");        
+        Edge married = g.addEdge(null, juno, jupiter, "married");   
         
-        return juno.toString();
-        //return "hello";
+        //return juno.toString();
+        
+        
+       
+
+        System.out.println(juno.toString());
+       
+        
+        Vertex turnus = g.addVertex(null);
+        turnus.setProperty("name", "turnus");
+        Vertex hercules = g.addVertex(null);
+        hercules.setProperty("name", "hercules");
+        Vertex dido = g.addVertex(null);
+        dido.setProperty("name", "dido");
+        Vertex troy = g.addVertex(null);
+        troy.setProperty("name", "troy");
+        jupiter.setProperty("name", "jupiter");
+
+        Edge edge = g.addEdge(null, juno, turnus, "knows");
+        edge.setProperty("since",2008);
+        edge.setProperty("stars",5);
+        edge = g.addEdge(null, juno, hercules, "knows");
+        edge.setProperty("since",2011);
+        edge.setProperty("stars",1);
+        edge = g.addEdge(null, juno, dido, "knows");
+        edge.setProperty("since", 2011);
+        edge.setProperty("stars", 5);
+        g.addEdge(null, juno, troy, "likes").setProperty("stars",5);        
+        
+        Iterable<Vertex> results = juno.query().labels("knows").has("since",2011).has("stars",5).vertices();
+        
+        Object results2 = troy.query().labels("knows").has("stars", 5).vertexIds();
+
+        String output = new String();
+        for(Vertex vertex : juno.query().vertices()) { 
+            System.out.println(" -- " + vertex.getProperty("name"));
+            output += " -- " + vertex.getProperty("name");
+        }        
+        
+        return output;
     }
 }
