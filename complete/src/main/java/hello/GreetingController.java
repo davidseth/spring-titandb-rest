@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import com.tinkerpop.blueprints.Graph;
 import com.thinkaurelius.titan.core.TitanFactory;
 import com.thinkaurelius.titan.core.TitanGraph;
+import com.thinkaurelius.titan.core.TitanTransaction;
 import com.tinkerpop.blueprints.Edge;
 import com.tinkerpop.blueprints.Vertex;
 import com.tinkerpop.blueprints.impls.tg.TinkerGraph;
@@ -35,6 +36,42 @@ public class GreetingController {
                             String.format(template, name));
     }
     
+    @RequestMapping("/person")
+    public @ResponseBody Person getPerson(@RequestParam(value="id", required=true) Long id) {
+        Configuration conf = new BaseConfiguration();
+        conf.setProperty("storage.backend","cassandra");
+        conf.setProperty("storage.hostname","127.0.0.1");
+        TitanGraph g = TitanFactory.open(conf);
+        
+        FramedGraphFactory factory = new FramedGraphFactory();
+        FramedGraph<TitanGraph> framedGraph = factory.create(g);
+
+        Person nicola = framedGraph.getVertex(id, Person.class);
+
+        
+        return nicola;
+    }     
+    
+    @RequestMapping("/person/add")
+    public @ResponseBody Person addPerson(@RequestParam(value="name", required=false, defaultValue="World") String name) {
+        Configuration conf = new BaseConfiguration();
+        conf.setProperty("storage.backend","cassandra");
+        conf.setProperty("storage.hostname","127.0.0.1");
+        TitanGraph g = TitanFactory.open(conf);
+        
+        //TitanTransaction trans = g.newTransaction();
+        
+        FramedGraphFactory factory = new FramedGraphFactory(new GremlinGroovyModule());
+        FramedGraph<TitanGraph> framedGraph = factory.create(g);
+
+        Person nicola = framedGraph.addVertex(null, Person.class);
+        nicola.setName(name);
+        
+        g.commit();
+        
+        return nicola;//.asVertex().getId();
+    } 
+    
     @RequestMapping("/graph")
     public @ResponseBody String graph() {
         
@@ -49,6 +86,9 @@ public class GreetingController {
         
      
         TitanGraph g = TitanFactory.open(conf);
+        
+        //TitanTransaction trans = g.newTransaction();
+        
         g.makeKey("name").dataType(String.class).indexed(Vertex.class).make();
         g.makeLabel("place").make();
         g.makeLabel("married").make();
@@ -109,6 +149,8 @@ public class GreetingController {
         
         Object results2 = troy.query().labels("knows").has("stars", 5).vertexIds();
 
+        g.commit();
+        
         String output = new String();
         for(Vertex vertex : juno.query().vertices()) { 
             System.out.println(" -- " + vertex.getProperty("name"));
