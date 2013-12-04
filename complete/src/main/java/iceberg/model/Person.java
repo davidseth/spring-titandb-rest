@@ -1,5 +1,8 @@
 package iceberg.model;
 
+import iceberg.edge.Family;
+import iceberg.edge.Friends;
+
 import com.tinkerpop.frames.Adjacency;
 import com.tinkerpop.frames.Property;
 import com.tinkerpop.frames.VertexFrame;
@@ -46,8 +49,10 @@ public interface Person extends VertexFrame {
     @Adjacency(label = "friends")
     void addFriend(Person person);
     
-    @GremlinGroovy("it.as('x').out('created').in('created').except('x')")
-    public Iterable<Person> getCoCreators();  
+    //@JsonIgnore
+    @Adjacency(label = "friends")
+    @GremlinGroovy("it.as('x').out('friends').in('friends').except('x')")
+    public Iterable<Person> getFriendsOfFriends();  
     
     public abstract class Impl implements JavaHandlerContext<Vertex>, Person {
 //        public String getNameAndAge() {
@@ -57,8 +62,9 @@ public interface Person extends VertexFrame {
         @Override
         @JavaHandler
         public Object getId() {
-            Vertex vertex = this.asVertex();
-          Object id = this.it().getId();
+            Object id = it().getId();
+//            Vertex vertex = this.asVertex();
+//          Object id = this.it().getId();
           return id;
         }        
     }
