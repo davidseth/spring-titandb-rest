@@ -3,13 +3,16 @@ package hello;
 import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.*;
 
 import com.tinkerpop.blueprints.Graph;
 import com.thinkaurelius.titan.core.TitanFactory;
 import com.thinkaurelius.titan.core.TitanGraph;
 import com.thinkaurelius.titan.core.TitanTransaction;
+import com.thinkaurelius.titan.core.TitanType;
 import com.tinkerpop.blueprints.Edge;
 import com.tinkerpop.blueprints.Vertex;
 import com.tinkerpop.blueprints.impls.tg.TinkerGraph;
@@ -36,10 +39,10 @@ public class GreetingController {
                             String.format(template, name));
     }
     
-    @RequestMapping("/person")
-    public @ResponseBody Person getPerson(@RequestParam(value="id", required=true) Long id) {
+    @RequestMapping(value="/person/{id}", method=RequestMethod.GET)
+    public @ResponseBody Person getPerson(@PathVariable Long id) {
         Configuration conf = new BaseConfiguration();
-        conf.setProperty("storage.backend","cassandra");
+        conf.setProperty("storage.backend","cassandrathrift");
         conf.setProperty("storage.hostname","127.0.0.1");
         TitanGraph g = TitanFactory.open(conf);
         
@@ -52,10 +55,11 @@ public class GreetingController {
         return nicola;
     }     
     
-    @RequestMapping("/person/add")
-    public @ResponseBody Person addPerson(@RequestParam(value="name", required=false, defaultValue="World") String name) {
+    // mapping help: http://www.byteslounge.com/tutorials/spring-mvc-requestmapping-example
+    @RequestMapping(value="/person/add/{name}", method=RequestMethod.GET)
+    public @ResponseBody Person addPerson(@PathVariable("name") String name) {
         Configuration conf = new BaseConfiguration();
-        conf.setProperty("storage.backend","cassandra");
+        conf.setProperty("storage.backend","cassandrathrift");
         conf.setProperty("storage.hostname","127.0.0.1");
         TitanGraph g = TitanFactory.open(conf);
         
@@ -76,12 +80,12 @@ public class GreetingController {
     public @ResponseBody String graph() {
         
         Configuration conf = new BaseConfiguration();
-        conf.setProperty("storage.backend","cassandra");
+        conf.setProperty("storage.backend","cassandrathrift");
         conf.setProperty("storage.hostname","127.0.0.1");
         
-//        conf.setProperty("storage.index.search.backend", "elasticsearch");
-//        conf.setProperty("storage.index.search.hostname", "127.0.0.1");
-//        conf.setProperty("storage.index.search.client-only", "true");
+        conf.setProperty("storage.index.search.backend", "elasticsearch");
+        conf.setProperty("storage.index.search.hostname", "127.0.0.1");
+        conf.setProperty("storage.index.search.client-only", "true");
         
         
      
@@ -89,15 +93,18 @@ public class GreetingController {
         
         //TitanTransaction trans = g.newTransaction();
         
-        g.makeKey("name").dataType(String.class).indexed(Vertex.class).make();
-        g.makeLabel("place").make();
-        g.makeLabel("married").make();
+        TitanType nameType = g.getType("name");
+        if (nameType == null) {
+            g.makeKey("name").dataType(String.class).indexed(Vertex.class).make();
+            g.makeLabel("place").make();
+            g.makeLabel("married").make();
+            
+        }
+        TitanType cityType = g.getType("city");
+        if (cityType == null) {
+            g.makeKey("city").dataType(String.class).indexed(Vertex.class).indexed(Edge.class).indexed("search",Vertex.class).indexed("search",Edge.class).make();
+        }
         
-        //g.makeKey("city").dataType(String.class).indexed(Vertex.class).indexed(Edge.class).indexed("search",Vertex.class).indexed("search",Edge.class).make();
-                
-        //Graph graph = new TitanFactory()
-      
-        //TinkerGraph graph = TinkerGraphFactory.createTinkerGraph();
         FramedGraphFactory factory = new FramedGraphFactory();
         FramedGraph<TitanGraph> framedGraph = factory.create(g);
 
@@ -107,21 +114,27 @@ public class GreetingController {
         Person david = framedGraph.addVertex(null, Person.class);
         david.setName("David Peterson");
         david.addFamily(nicola);
+        david.addFriend(nicola);
         
+
+        
+        
+        System.out.println( "david id: " + david.getId());
         
         Vertex juno = g.addVertex(null);
         juno.setProperty("name", "juno");
         juno.setProperty("city", "bismarck");
+        juno.setProperty("content", "why won't this work???");
+        
         Vertex jupiter = g.addVertex(null);
         jupiter.setProperty("name", "jupiter");
-        Edge married = g.addEdge(null, juno, jupiter, "married");   
+        Edge friends = g.addEdge(null, juno, jupiter, "friends");
+        Edge family = g.addEdge(null, juno, jupiter, "family");
+        
         
         //return juno.toString();
-        
-        
-       
 
-        System.out.println(juno.toString());
+        System.out.println( "juno id: " + juno.getId());
        
         
         Vertex turnus = g.addVertex(null);
@@ -133,6 +146,8 @@ public class GreetingController {
         Vertex troy = g.addVertex(null);
         troy.setProperty("name", "troy");
         jupiter.setProperty("name", "jupiter");
+        
+        Edge friends2 = g.addEdge(null, juno, turnus, "friends");
 
         Edge edge = g.addEdge(null, juno, turnus, "knows");
         edge.setProperty("since",2008);
