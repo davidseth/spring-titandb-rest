@@ -13,6 +13,7 @@ import com.thinkaurelius.titan.core.TitanFactory;
 import com.thinkaurelius.titan.core.TitanGraph;
 import com.thinkaurelius.titan.core.TitanTransaction;
 import com.thinkaurelius.titan.core.TitanType;
+import com.thinkaurelius.titan.core.attribute.Geoshape;
 import com.tinkerpop.blueprints.Edge;
 import com.tinkerpop.blueprints.Element;
 import com.tinkerpop.blueprints.Vertex;
@@ -25,10 +26,13 @@ import com.tinkerpop.frames.modules.gremlingroovy.GremlinGroovyModule;
 import com.tinkerpop.frames.modules.javahandler.JavaHandlerModule;
 import com.tinkerpop.frames.modules.typedgraph.TypedGraphModuleBuilder;
 
+
 import org.apache.commons.configuration.BaseConfiguration;
 import org.apache.commons.configuration.Configuration;
 
 import iceberg.model.Person;
+import iceberg.model.Location;
+import iceberg.model.Story;
 
 @Controller
 public class GreetingController {
@@ -58,7 +62,20 @@ public class GreetingController {
 
         
         return nicola;
-    }     
+    }
+    
+    @RequestMapping(value="/person-vertex/{id}", method=RequestMethod.GET)
+    public @ResponseBody Vertex getPersonAsVertex(@PathVariable Long id) {
+        Configuration conf = new BaseConfiguration();
+        conf.setProperty("storage.backend","cassandrathrift");
+        conf.setProperty("storage.hostname","127.0.0.1");
+        TitanGraph g = TitanFactory.open(conf);
+        
+
+        Vertex vertex = g.getVertex(id);
+
+        return vertex;
+    }
     
     // mapping help: http://www.byteslounge.com/tutorials/spring-mvc-requestmapping-example
     @RequestMapping(value="/person/add/{name}", method=RequestMethod.GET)
@@ -114,7 +131,10 @@ public class GreetingController {
         if (cityType == null) {
             g.makeKey("city").dataType(String.class).indexed(Vertex.class).indexed(Edge.class).indexed("search",Vertex.class).indexed("search",Edge.class).make();
         }
-
+        TitanType locationType = g.getType("location");
+        if (locationType == null) {
+            g.makeKey("location").dataType(Geoshape.class).indexed(Vertex.class).indexed(Edge.class).indexed("search",Vertex.class).indexed("search",Edge.class).make();
+        }
         
         
 //        FramedGraph<TitanGraph> framedGraph = new FramedGraph(g);
@@ -137,12 +157,17 @@ public class GreetingController {
 //        }).create(g);        
         
        
+        Location location = framedGraph.addVertex(null, Location.class);
+        location.setName("Palmwoods");
+        Geoshape shape = Geoshape.point(-26.68584, 152.96135);
+        location.setLocation(shape);
 
         Person nicola = (Person) framedGraph.addVertex(null, Person.class);
         nicola.setName("Nicola Peterson");        
        
         Person david = (Person) framedGraph.addVertex(null, Person.class);
         david.setName("David Peterson");
+        david.asVertex().addEdge("lives", location.asVertex());
         david.addFamily(nicola);
         david.addFriend(nicola);
        
