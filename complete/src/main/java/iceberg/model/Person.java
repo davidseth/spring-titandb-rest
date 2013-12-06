@@ -10,9 +10,12 @@ import com.tinkerpop.blueprints.Vertex;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.tinkerpop.frames.annotations.gremlin.GremlinGroovy;
+import com.tinkerpop.frames.modules.javahandler.Initializer;
 import com.tinkerpop.frames.modules.javahandler.JavaHandler;
 import com.tinkerpop.frames.modules.javahandler.JavaHandlerContext;
+import com.tinkerpop.frames.modules.typedgraph.TypeValue;
 
+@TypeValue("type")
 public interface Person extends VertexFrame {
     
     @Property("name")
@@ -62,10 +65,19 @@ public interface Person extends VertexFrame {
         @Override
         @JavaHandler
         public Object getId() {
-            Object id = it().getId();
+            return this.asVertex().getId(); 
+            //Object id = it().getId();
+            
 //            Vertex vertex = this.asVertex();
 //          Object id = this.it().getId();
-          return id;
+          //return id;
+          //return it().getProperty("id");
+        }
+        
+        @Initializer
+        public void init() {
+           //This will be called when a new framed element is added to the graph.
+           setContent("This is placeholder content if nothing explicit is set!!!");
         }        
     }
 }
