@@ -6,11 +6,11 @@ import com.tinkerpop.frames.VertexFrame;
 
 public interface Story extends VertexFrame {
     
-    @Property("name")
-    public String getName();
+    @Property("title")
+    public String getTitle();
     
-    @Property("name")
-    public String setName(String name);
+    @Property("title")
+    public String setTitle(String title);
     
     @Property("content")
     public String getContent();
