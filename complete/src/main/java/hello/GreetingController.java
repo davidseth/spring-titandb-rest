@@ -1,6 +1,14 @@
 package hello;
 
+import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicLong;
+
+import org.apache.commons.configuration.BaseConfiguration;
+import org.apache.commons.configuration.Configuration;
+
+import org.codehaus.jettison.json.JSONException;
+import org.codehaus.jettison.json.JSONObject;
+
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -8,27 +16,28 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.*;
 
-import com.tinkerpop.blueprints.Graph;
+
 import com.thinkaurelius.titan.core.TitanFactory;
 import com.thinkaurelius.titan.core.TitanGraph;
+import com.thinkaurelius.titan.core.TitanKey;
 import com.thinkaurelius.titan.core.TitanTransaction;
 import com.thinkaurelius.titan.core.TitanType;
 import com.thinkaurelius.titan.core.attribute.Geoshape;
+import com.thinkaurelius.titan.graphdb.configuration.GraphDatabaseConfiguration;
+import com.tinkerpop.blueprints.Direction;
 import com.tinkerpop.blueprints.Edge;
 import com.tinkerpop.blueprints.Element;
+import com.tinkerpop.blueprints.Graph;
 import com.tinkerpop.blueprints.Vertex;
 import com.tinkerpop.blueprints.impls.tg.TinkerGraph;
 import com.tinkerpop.blueprints.impls.tg.TinkerGraphFactory;
+import com.tinkerpop.blueprints.util.io.graphson.GraphSONMode;
 import com.tinkerpop.frames.FrameInitializer;
 import com.tinkerpop.frames.FramedGraph;
 import com.tinkerpop.frames.FramedGraphFactory;
 import com.tinkerpop.frames.modules.gremlingroovy.GremlinGroovyModule;
 import com.tinkerpop.frames.modules.javahandler.JavaHandlerModule;
 import com.tinkerpop.frames.modules.typedgraph.TypedGraphModuleBuilder;
-
-
-import org.apache.commons.configuration.BaseConfiguration;
-import org.apache.commons.configuration.Configuration;
 
 import iceberg.model.Person;
 import iceberg.model.Location;
@@ -41,60 +50,68 @@ public class GreetingController {
     private final AtomicLong counter = new AtomicLong();
     //private FramedGraph<Graph> framedGraph;
 
-    @RequestMapping("/greeting")
-    public @ResponseBody Greeting greeting(
-            @RequestParam(value="name", required=false, defaultValue="World") String name) {
-        return new Greeting(counter.incrementAndGet(),
-                            String.format(template, name));
+    private Configuration getTitanConf() {
+        Configuration conf = new BaseConfiguration();
+        conf.setProperty("storage.backend","cassandrathrift");
+        conf.setProperty("storage.hostname","127.0.0.1");
+        
+        conf.setProperty("storage.index.search.backend", "elasticsearch");
+        conf.setProperty("storage.index.search.hostname", "127.0.0.1");
+        conf.setProperty("storage.index.search.client-only", "true");        
+        
+        return conf;
     }
+    
+    private TitanGraph getTitanGraph() {
+        TitanGraph g = TitanFactory.open(getTitanConf());
+        
+        return g;
+    }
+    
+
+    /*
+     * 
+     */
+    private FramedGraph<TitanGraph> getFramedTitanGraph() {
+        TitanGraph g = getTitanGraph();
+        
+        FramedGraphFactory factory = new FramedGraphFactory(new GremlinGroovyModule(), new JavaHandlerModule());
+        FramedGraph<TitanGraph> framedGraph = factory.create(g);        
+        
+        return framedGraph;
+    }    
     
     @RequestMapping(value="/person/{id}", method=RequestMethod.GET)
     public @ResponseBody Person getPerson(@PathVariable Long id) {
-        Configuration conf = new BaseConfiguration();
-        conf.setProperty("storage.backend","cassandrathrift");
-        conf.setProperty("storage.hostname","127.0.0.1");
-        TitanGraph g = TitanFactory.open(conf);
+        FramedGraph<TitanGraph> framedGraph = getFramedTitanGraph();
         
-        FramedGraphFactory factory = new FramedGraphFactory();
-        FramedGraph<TitanGraph> framedGraph = factory.create(g);
-
         Person nicola = framedGraph.getVertex(id, Person.class);
 
-        
         return nicola;
     }
     
-    @RequestMapping(value="/person-vertex/{id}", method=RequestMethod.GET)
-    public @ResponseBody Vertex getPersonAsVertex(@PathVariable Long id) {
-        Configuration conf = new BaseConfiguration();
-        conf.setProperty("storage.backend","cassandrathrift");
-        conf.setProperty("storage.hostname","127.0.0.1");
-        TitanGraph g = TitanFactory.open(conf);
+    @RequestMapping(value="/person-vertex/{id}", method=RequestMethod.GET, produces="application/json")
+    public @ResponseBody String getPersonAsVertex(@PathVariable Long id) throws JSONException {
+        TitanGraph g = getTitanGraph();
         
-
-        Vertex vertex = g.getVertex(id);
-
-        return vertex;
+        com.thinkaurelius.titan.core.TitanVertex vertex = (com.thinkaurelius.titan.core.TitanVertex) g.getVertex(id);
+        //return vertex;
+        
+        JSONObject json = com.tinkerpop.blueprints.util.io.graphson.GraphSONUtility.jsonFromElement(vertex, null, GraphSONMode.EXTENDED);
+        System.out.println(json.toString());
+        return json.toString();
     }
     
     // mapping help: http://www.byteslounge.com/tutorials/spring-mvc-requestmapping-example
     @RequestMapping(value="/person/add/{name}", method=RequestMethod.GET)
     public @ResponseBody Person addPerson(@PathVariable("name") String name) {
-        Configuration conf = new BaseConfiguration();
-        conf.setProperty("storage.backend","cassandrathrift");
-        conf.setProperty("storage.hostname","127.0.0.1");
-        TitanGraph g = TitanFactory.open(conf);
-        
-        //TitanTransaction trans = g.newTransaction();
-        
-        FramedGraphFactory factory = new FramedGraphFactory(new GremlinGroovyModule());
-        FramedGraph<TitanGraph> framedGraph = factory.create(g);
+        FramedGraph<TitanGraph> framedGraph = getFramedTitanGraph();
 
         Person nicola = framedGraph.addVertex(null, Person.class);
         nicola.setName(name);
         
-        g.commit();
-        
+        framedGraph.getBaseGraph().commit();
+
         return nicola;//.asVertex().getId();
     } 
     
@@ -107,18 +124,8 @@ public class GreetingController {
     
     @RequestMapping("/graph")
     public @ResponseBody String graph() {
-        
-        Configuration conf = new BaseConfiguration();
-        conf.setProperty("storage.backend","cassandrathrift");
-        conf.setProperty("storage.hostname","127.0.0.1");
-        
-        conf.setProperty("storage.index.search.backend", "elasticsearch");
-        conf.setProperty("storage.index.search.hostname", "127.0.0.1");
-        conf.setProperty("storage.index.search.client-only", "true");
-     
-        TitanGraph g = TitanFactory.open(conf);
-        
-        //TitanTransaction trans = g.newTransaction();
+        FramedGraph<TitanGraph> framedGraph = getFramedTitanGraph();
+        TitanGraph g = framedGraph.getBaseGraph();
         
         TitanType nameType = g.getType("name");
         if (nameType == null) {
@@ -134,15 +141,26 @@ public class GreetingController {
         TitanType locationType = g.getType("location");
         if (locationType == null) {
             g.makeKey("location").dataType(Geoshape.class).indexed(Vertex.class).indexed(Edge.class).indexed("search",Vertex.class).indexed("search",Edge.class).make();
+        }     
+        
+        for (String key : g.getIndexedKeys(Vertex.class)) {
+            TitanKey type = (TitanKey) g.getType(key);
+            //dump the key
+           
+            System.out.println("found key: " + key);
+            System.out.println("\tname: " + type.getName());
+            System.out.println("\ttype: " + type.getType());
+            System.out.println("\tid: " + type.getId());
+            System.out.println("\tisNew: " + type.isNew());
+            System.out.println("\tisModifiable: " + type.isModifiable());
+            System.out.println("\tisUnique: " + type.isUnique(Direction.IN));
+            System.out.println("\tisPropertyKey: " + type.isPropertyKey());
+            
+            for (String indice : type.getIndexes(Vertex.class)) {
+                System.out.println("\t\tindex: " + indice);
+            }
         }
         
-        
-//        FramedGraph<TitanGraph> framedGraph = new FramedGraph(g);
-//        framedGraph.registerFrameInitializer(myInitializer);
-        
-        FramedGraphFactory factory = new FramedGraphFactory(new JavaHandlerModule());
-        FramedGraph<TitanGraph> framedGraph = factory.create(g);
-
 //        FramedGraphFactory factory = new FramedGraphFactory(
 //            new GremlinGroovyModule(),
 //            new TypedGraphModuleBuilder().withClass(Person.class).build());
