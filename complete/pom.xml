@@ -5,7 +5,7 @@
 
     <groupId>org.springframework</groupId>
     <artifactId>gs-rest-service</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.1</version>
 
     <parent>
         <groupId>org.springframework.boot</groupId>
@@ -25,12 +25,12 @@
         <dependency>
            <groupId>com.thinkaurelius.titan</groupId>
            <artifactId>titan-cassandra</artifactId>
-           <version>0.4.0</version>
+           <version>0.4.1</version>
         </dependency>
         <dependency>
            <groupId>com.thinkaurelius.titan</groupId>
            <artifactId>titan-es</artifactId>
-           <version>0.4.0</version>
+           <version>0.4.1</version>
         </dependency>          
         <dependency>
            <groupId>com.tinkerpop.blueprints</groupId>
