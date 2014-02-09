@@ -39,9 +39,14 @@ import com.tinkerpop.frames.modules.gremlingroovy.GremlinGroovyModule;
 import com.tinkerpop.frames.modules.javahandler.JavaHandlerModule;
 import com.tinkerpop.frames.modules.typedgraph.TypedGraphModuleBuilder;
 
+
+
 import iceberg.model.Person;
 import iceberg.model.Location;
 import iceberg.model.Story;
+import java.util.HashMap;
+import java.util.Map;
+import org.springframework.http.HttpStatus;
 
 @Controller
 public class GreetingController {
@@ -82,7 +87,8 @@ public class GreetingController {
     }    
     
     @RequestMapping(value="/person/{id}", method=RequestMethod.GET)
-    public @ResponseBody Person getPerson(@PathVariable Long id) {
+    @ResponseBody
+    public Person getPerson(@PathVariable Long id) {
         FramedGraph<TitanGraph> framedGraph = getFramedTitanGraph();
         
         Person nicola = framedGraph.getVertex(id, Person.class);
@@ -91,7 +97,8 @@ public class GreetingController {
     }
     
     @RequestMapping(value="/person-vertex/{id}", method=RequestMethod.GET, produces="application/json")
-    public @ResponseBody String getPersonAsVertex(@PathVariable Long id) throws JSONException {
+    @ResponseBody
+    public String getPersonAsVertex(@PathVariable Long id) throws JSONException {
         TitanGraph g = getTitanGraph();
         
         com.thinkaurelius.titan.core.TitanVertex vertex = (com.thinkaurelius.titan.core.TitanVertex) g.getVertex(id);
@@ -104,7 +111,9 @@ public class GreetingController {
     
     // mapping help: http://www.byteslounge.com/tutorials/spring-mvc-requestmapping-example
     @RequestMapping(value="/person/add/{name}", method=RequestMethod.GET)
-    public @ResponseBody Person addPerson(@PathVariable("name") String name) {
+    @ResponseStatus( HttpStatus.CREATED )
+    @ResponseBody
+    public Person addPerson(@PathVariable("name") String name) {
         FramedGraph<TitanGraph> framedGraph = getFramedTitanGraph();
 
         Person nicola = framedGraph.addVertex(null, Person.class);
@@ -123,9 +132,11 @@ public class GreetingController {
     };   
     
     @RequestMapping("/graph")
-    public @ResponseBody String graph() {
+    @ResponseBody
+    public String graph() {
         FramedGraph<TitanGraph> framedGraph = getFramedTitanGraph();
         TitanGraph g = framedGraph.getBaseGraph();
+        StringBuilder output = new StringBuilder();
         
         TitanType nameType = g.getType("name");
         if (nameType == null) {
@@ -149,7 +160,7 @@ public class GreetingController {
            
             System.out.println("found key: " + key);
             System.out.println("\tname: " + type.getName());
-            System.out.println("\ttype: " + type.getType());
+            System.out.println("\ttype: " + type.getDataType());
             System.out.println("\tid: " + type.getId());
             System.out.println("\tisNew: " + type.isNew());
             System.out.println("\tisModifiable: " + type.isModifiable());
@@ -185,9 +196,19 @@ public class GreetingController {
        
         Person david = (Person) framedGraph.addVertex(null, Person.class);
         david.setName("David Peterson");
+        
+        Map<String, Integer> map = new HashMap<String, Integer>();
+        map.put("street", 1);
+        map.put("stuff", 2);
+        map.put("cars", 3);
+
         david.asVertex().addEdge("lives", location.asVertex());
+        david.asVertex().setProperty("address", map );
         david.addFamily(nicola);
         david.addFriend(nicola);
+        
+        //JSONObject json = com.tinkerpop.blueprints.util.io.graphson.GraphSONUtility.jsonFromElement(david, null, GraphSONMode.EXTENDED);
+        output.append(david);
        
         
         System.out.println( "david id: " + david.getId());
@@ -251,12 +272,12 @@ public class GreetingController {
 
         g.commit();
         
-        String output = new String();
+        
         for(Vertex vertex : juno.query().vertices()) { 
             System.out.println(" -- " + vertex.getProperty("name"));
-            output += " -- " + vertex.getProperty("name");
+            output.append( " -- " + vertex.getProperty("name"));
         }        
         
-        return output;
+        return output.toString();
     }
 }
